@@ -226,7 +226,7 @@ return g;}
  struct timeval t1, t2;
     int elapsedTime=0,t=0,e2=0,prev=0,de,dt;
 int xdes,xact,e;
-float kp=0.005,kd=0.0005;
+float kp=0.006,kd=1;
 
    float te,derr;      
  gettimeofday(&t1, NULL);
@@ -275,26 +275,26 @@ float kp=0.005,kd=0.0005;
     
 
   
-   if(te>50)
-   {duty=1;
+  if(te>50.0)
+   {duty=1.0;
    }
-   else if(0<te<50)
-   {duty=99-(te+50);
+   else if(te>0.0 && te<50.0)
+   {duty=99.0-(te+50.0);
+      cout<<"hello"; 
+   }
+   else if(te==50.0)
+   {duty=99.0-(te+50.0);
        
    }
-   else if(te==50)
-   {duty=99-(te+50);
-       
-   }
-   else if(-50<te<0)
-    {
-        duty=(te+50);}
-   else if(te==-50)
-    {
-        duty=(te+50);}
-    else if(te<-50)
-    {
-        duty=99;}
+   else if(te<0.0 && te>-50.0 )
+    {  cout<<"hey";
+        duty=99.0-(te+50.0);}
+   else if(te==-50.0)
+    { 
+        duty=(te+50.0);}
+    else
+    {cout<<"i m here";
+        duty=99.0;}
     
    
    

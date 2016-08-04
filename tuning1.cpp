@@ -349,7 +349,13 @@ float p=0.005,ki=0.005,ierr=0,te,x2=0,speed=0,Ers,d=0.5,xdes=0,dx=7500;
     //cout<<"e ="<<e<<"\t" ;
     
     //outputFile<<xact<<"\t"<<elapsedTime<<"\n";
-   
+   if(E<=4 && E>=-4)
+   {y=0;
+       te=0;
+   }
+   else
+   {y=0.1;}
+
 
 
 

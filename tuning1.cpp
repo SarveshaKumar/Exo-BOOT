@@ -162,121 +162,246 @@ PWM::~PWM() {}
 
 } /* namespace exploringBB */
 
-double encoder(){
-
-    
-    char logicA = '1';
-    char logicB = '2';
-    int fd = open("/dev/mem",O_RDWR | O_SYNC);
-    ulong* pinconf1 =  (ulong*) mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, GPIO1_ADDR);
-    //configure encoder pins as input
-    pinconf1[OE_ADDR/4]  |= ((1<<13)|(1 << 12)|(1<<15)|(1<<14)); //P8_11, P8_12, P8_15, P8_16   
-
-   //Read
-	{
-		//inr = read_rEncoder(*pinconf1, logicA); //logic A
-		if(pinconf1[GPIO_DATAIN/4] & (1 << 13)){
-//                        cout << "A is HIGH" <<endl;
-                        inr = HIGH;
-                }else{
-//                        cout << "A is LOW" << endl;
-                        inr = LOW;
+float adc(){
+	const char *fname = "/sys/bus/iio/devices/iio:device0/in_voltage2_raw";
+        int count = 0, fd, len,r=0;
+        float r2=0,r3=0;
+        char adc[5] = {0};
+     float u,force;
+        while(count<20)
+                {fd = open(fname, O_RDONLY);
+                /*if(fd == -1){
+                        printf("error: %s %d\n", strerror(errno), errno);
+                  exit(1);
+	                }
+ 
+                if(count % 10 == 0 && count != 0)
+                        printf("\n");*/
+ 
+	                len = read(fd, adc, sizeof(adc - 1));
+ 
+	                if(len == -1){
+	                        close(fd);
+	                               
+	                }
+	                else if(len == 0){
+	                       //printf("%s\n", "buffer is empty");
+	                }
+	                else{
+	                        adc[len] ='\0';
+	                        //printf("%s ", adc);
+	                }
+ 
+	                close(fd);
+ 
+	                count++;
+	        
+                r= atoi(adc);
+                r2=(r*0.9)+(r3*0.1);
+                r3=r2;
+                    
+                    
                 }
-
-
-		if((r_last == LOW)&&(inr == HIGH)){
-			if(pinconf1[GPIO_DATAIN/4] & (1 << 12)) {
-//	                        cout << "B is HIGH" << endl;
-        	                inrB = HIGH;
-                	}else{
-//                        	cout << "B is low" << endl;
-                        	inrB = LOW;
-                	}
-
-			if(inrB == LOW){
-		//		cout << "increasing" << endl;
-				rPose--;
-			}else{
-		//		cout << "decreasing" << endl;
-				rPose++;
-			}
-		}
-		r_last = inr;
-		cout <<"\t rpose="<<rPose<<"\t";
-//		sleep(.01);
+	     
+	        u=(r2*1.8)/4095; //cout<<"u"<<u<<"\t";
+	   	    force=202.18*u;
+	   	    
+	   	        return force;
 	}
-	
-	return(rPose);
-}
 
 
-double fxdes(double k)
+
+
+int encoder(){ using namespace std; int f,enc;
+	const char *fname = "/sys/devices/ocp.3/48304000.epwmss/48304180.eqep/position";
+        int count = 0, fd, len;
+        char enco[32] = {0};
+               
+         
+                fd = open(fname, O_RDONLY);
+                if(fd == -1){
+                       // printf("error: %s %d\n", strerror(errno), errno);
+                        exit(1);
+	                }
+ 
+              //  if(count % 10 == 0 && count != 0)
+                        cout<<"\n";
+ 
+	                len = read(fd, enco, sizeof(enco));
+ 
+	                if(len == -1){
+	                        close(fd);
+	                                   
+	                }
+	                else if(len == 0){
+	                        cout<<"\n"<<"buffer is empty";
+	                }
+	                else{  cout<<"\n";
+	                        enco[len] ='\0';
+	                        
+	                        enc= atoi(enco);
+                        
+	                       // cout<<enc<<"\t\t";
+	               
+ 
+	                close(fd);
+ 
+	              //  count++;
+	        }
+ 
+	        return  enc;
+	}
+
+/*int fxdes(int k)
 {  
-double g;
-if(k<250)
+int g;
+if(k<1000)
 
-g=10;
+g=10000;
 
-else if(k>=250 && k<=500)
-g=15;
+else if(k>=1000 && k<=2000)
+g=50000;
 
 else
-g=10;
+g=10000;
 
-return g;}
+return g;}*/
 
 
     int main(){
-    
+    cout<<"i m in";
     using namespace exploringBB;
    PWM pwm_m1("pwm_test_P9_42.15");  // example alternative pin
-   double duty; 
+   float duty=0; 
  struct timeval t1, t2;
-    double elapsedTime=0,t=0,e2=0,prev=0,de,dt;
-double xdes,xact,e,kp=0.04,kd=0.004;
-   double te,derr;      
+    int elapsedTime2=0,t22=0,e2=0,prev=0,de,dt2;
+ int xact=0,e;
+float kp=0.04,kd=9;
+float E=0,fref,fact,fref2,fact2;
+struct timeval t3;
+int elapsedTime=0,t=0,dt,prevE=0,count=0,y=0.1;
+float p=0.005,ki=0.005,ierr=0,te,x2=0,speed=0,Ers,d=0.5,xdes=0,dx=7500;
+   float te2,derr;      
  gettimeofday(&t1, NULL);
- while(t!=1000)
+ fref=adc();
+ 
+ FILE *fp = fopen(("/sys/devices/ocp.3/48304000.epwmss/48304180.eqep/position"), "w");
+     /* if(fp == NULL)
+    {
+        // Error, break out
+        //std::cerr << "[eQEP " << this->path << "] Unable to open position for write" << std::endl;
+        return;
+    }*/
 
+    // Write the desired value to the file
+    fprintf(fp, "%d\n", 0);
+    
+    // Commit changes
+    fclose(fp); 
+//  ofstream outputFile;  
+ // outputFile.open("fivefast.txt");
+ ofstream outputFile;  
+  outputFile.open("force.txt");
+ while(t<100000)
   { 
+  fact=adc();
+  cout<<"fref="<<fref<<"\t"<<"fact="<<fact<<"\t";
+  E=fref-fact;
   
-  xdes=fxdes(elapsedTime);
-  xact=encoder();
-       e=xdes-xact;  
+  //cout<<"E="<<E<<"\t";
   
-  gettimeofday(&t2, NULL);
+  gettimeofday(&t3, NULL);
 
     // compute and print the elapsed time in millisec
-    elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
-    elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
-    de=e-e2;
-    dt=elapsedTime-prev;
-    derr=de/dt;
-    te=kp*e+kd*1000*(derr);
-    cout << elapsedTime << " ms.\n";t=elapsedTime; 
-    e2=e;
-    prev=elapsedTime;
-    cout<<"te ="<<te<<"\t" ;
-    //ofstream outputFile;
-    //outputFile.open("xact.txt");
-    //outputFile<<xact<<"\t \t"<<elapsedTime<<"\n";
-    //outputFile.close();
-    
+    elapsedTime = (t3.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+    elapsedTime += (t3.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+    dt=elapsedTime-prevE;
+    ierr+=E*dt; //cout<<"ierr="<<ierr<<"\t";
+    te2=p*E+ki*(ierr);
+  //  cout<<"te2="<<te2<<"\t";
+//    cout << elapsedTime << " ms.\t\t";
+     Ers=(te2-(d*speed));
+    xdes+=y*(Ers*dt);
 
-  if(te<0) 
-   {duty=40;}
-   else if(te>0)
-   {duty=90;}
-   else
-   {duty=51;}
+  cout<<"\t"<<"Ers="<<Ers<<"\t"<<"xdes="<<xdes<<"\t"<<"dt="<<dt<<"\t"<<"y="<<y<<"\t";
+
+    cout<<"xact"<<xact<<"\t";
+      outputFile<<xact<<"\t"<<xdes<<"\n";
+        cout<<"fref="<<fref<<"\t"<<"fact="<<fact<<"\t";
+       xact=encoder();
+       e=xdes-xact;  
+      
+  gettimeofday(&t2, NULL);
+
+
+    // compute and print the elapsed time in millisec
+    elapsedTime2 = (t2.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+    elapsedTime2 += (t2.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+    de=e-e2;
+    dt2=elapsedTime2-prev;
+    derr=de/dt2;
+    te=kp*e+kd*(derr);
+   //cout<<"te"<<te<<"\t\t";
+    cout << elapsedTime2 << " ms.\t";
+    t22=elapsedTime2; 
+    e2=e;
+    prev=elapsedTime2;
+    //cout<<"e ="<<e<<"\t" ;
+    
+    //outputFile<<xact<<"\t"<<elapsedTime<<"\n";
+   
+
+
+
+    if(te>50.0)
+   {duty=99.0;
+   }
+   else if(te>0.0 && te<50.0)
+   {duty=(te+50.0);
+      //cout<<"hello"; 
+   }
+   else if(te==50.0)
+   {duty=(te+50.0);
+       
+   }
+   else if(te<0.0 && te>-50.0 )
+    {  //cout<<"hey";
+        duty=(te+50.0);}
+   else if(te==-50.0)
+    { 
+        duty=(te+50.0);}
+ else if(te==0)
+ 
+  {duty=50.0;}
+ 
+    else
+    {//cout<<"i m here";
+        duty=1.0;}
+    
+   cout<<"\t"<<duty<<"\t";
+   
   
    pwm_m1.setFrequency(400);         // Set the period in ns
    pwm_m1.setDutyCycle(duty*1.0f);       // Set the duty cycle as a percentage
    pwm_m1.setPolarity(PWM::ACTIVE_LOW);  // using active low PWM
    pwm_m1.run();  
-      //xdes-=50; 
+   
      
-  }
+  
+  
+   
+   dx=xact-x2;
+    speed=dx/dt;
+   cout<<"speed="<<speed<<"\n";
+   
+    x2=xact;
+    t=elapsedTime; 
+    prevE=elapsedTime;
+   // cout<<"E ="<<E<<"\t" ;
+      t++;
+
+count++;      }
+ outputFile.close();
  
- 
+ //outputFile.close();
    }     // start the PWM output

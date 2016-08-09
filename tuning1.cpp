@@ -30,7 +30,7 @@ double rPose=0;
 int r_last = LOW;
 int inr = 0;
 int inrB = 0;
-
+float voltage;
 namespace exploringBB {
 	
 int write(string path, string filename, string value){
@@ -162,6 +162,7 @@ PWM::~PWM() {}
 
 } /* namespace exploringBB */
 
+
 float adc(){
 	const char *fname = "/sys/bus/iio/devices/iio:device0/in_voltage2_raw";
         int count = 0, fd, len,r=0;
@@ -203,14 +204,21 @@ float adc(){
                     
                 }
 	     
-	        u=(r2*1.8)/4095; //cout<<"u"<<u<<"\t";
-	   	    force=202.18*u;
-	   	    
-	   	        return force;
+	        u=(r2*1.8)/4095; cout<<"\t"<<"u"<<u<<"\t";
+	   	   
+	   	        return u;
 	}
 
+float force()
+{ float v,m,n;
 
-
+v=adc();
+m=v-voltage;
+ n=(202.18*m);
+//cout<<"\t"<<"m="<<m<<"\t";	   	    
+return n;    
+    
+}
 
 int encoder(){ using namespace std; int f,enc;
 	const char *fname = "/sys/devices/ocp.3/48304000.epwmss/48304180.eqep/position";
@@ -274,17 +282,21 @@ return g;}*/
    PWM pwm_m1("pwm_test_P9_42.15");  // example alternative pin
    float duty=0; 
  struct timeval t1, t2;
-    int elapsedTime2=0,t22=0,e2=0,prev=0,de,dt2;
- int xact=0,e;
+    int elapsedTime2=0,t22=0,prev=0,dt2;
+    float de,e2=0;
+    
+ int xact=0;
+ float e=0;
 float kp=0.04,kd=9;
-float E=0,fref,fact,fref2,fact2;
-struct timeval t3;
-int elapsedTime=0,t=0,dt,prevE=0,count=0,y=0.1;
-float p=0.005,ki=0.005,ierr=0,te,x2=0,speed=0,Ers,d=0.5,xdes=0,dx=7500;
+float E=0,fref,fact;
+struct timeval t3,t4;
+int elapsedTime=0,elapsedTime3=0,t=0,dt,dt3,prev2=0,prevE=0,count=0;
+float y=1;
+float p=0.005,ki=0.0005,ierr=0,te,x2=0,speed=0,Ers,d=0.5,xdes=0,dx;
    float te2,derr;      
- gettimeofday(&t1, NULL);
- fref=adc();
  
+ fref=0;
+ voltage=adc();
  FILE *fp = fopen(("/sys/devices/ocp.3/48304000.epwmss/48304180.eqep/position"), "w");
      /* if(fp == NULL)
     {
@@ -301,18 +313,18 @@ float p=0.005,ki=0.005,ierr=0,te,x2=0,speed=0,Ers,d=0.5,xdes=0,dx=7500;
 //  ofstream outputFile;  
  // outputFile.open("fivefast.txt");
  ofstream outputFile;  
-  outputFile.open("force.txt");
+gettimeofday(&t1, NULL);
+  outputFile.open("forcegraph19.txt");
  while(t<100000)
   { 
-  fact=adc();
-  cout<<"fref="<<fref<<"\t"<<"fact="<<fact<<"\t";
+  fact=force();
+ 
   E=fref-fact;
   
   //cout<<"E="<<E<<"\t";
   
   gettimeofday(&t3, NULL);
-
-    // compute and print the elapsed time in millisec
+   // compute and print the elapsed time in millisec
     elapsedTime = (t3.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
     elapsedTime += (t3.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
     dt=elapsedTime-prevE;
@@ -320,17 +332,36 @@ float p=0.005,ki=0.005,ierr=0,te,x2=0,speed=0,Ers,d=0.5,xdes=0,dx=7500;
     te2=p*E+ki*(ierr);
   //  cout<<"te2="<<te2<<"\t";
 //    cout << elapsedTime << " ms.\t\t";
-     Ers=(te2-(d*speed));
+    gettimeofday(&t4, NULL);
+      xact=encoder();
+      dx=xact-x2;
+    
+     /* elapsedTime3 = (t4.tv_sec - t1.tv_sec) * 1000.0;      // sec to ms
+    elapsedTime3 += (t4.tv_usec - t1.tv_usec) / 1000.0;   // us to ms
+    dt3=elapsedTime3-prev2;*/ 
+     speed=dx/dt;
+    
+    Ers=(te2-(d*speed));
     xdes+=y*(Ers*dt);
+    
+    /*prev2=elapsedTime3;*/
+    
+    if(xdes>50000)
+    {xdes =50000;}
+    else if (xdes<-50000)
+    {xdes =-50000;}
 
-  cout<<"\t"<<"Ers="<<Ers<<"\t"<<"xdes="<<xdes<<"\t"<<"dt="<<dt<<"\t"<<"y="<<y<<"\t";
+//  cout<<"Ers="<<Ers<<"\t"<<"xdes="<<xdes<<"\t";
 
-    cout<<"xact"<<xact<<"\t";
-      outputFile<<xact<<"\t"<<xdes<<"\n";
-        cout<<"fref="<<fref<<"\t"<<"fact="<<fact<<"\t";
-       xact=encoder();
+    cout<<"xact="<<xact<<"\t";
+    outputFile<<xact<<"\t"<<xdes<<"\t"<<elapsedTime<<"\t"<<fref<<"\t"<<fact<<"\t"<<te2<<"\t"<<Ers<<"\t"<<e<<"\n";
+    cout<<"fref="<<fref<<"\t"<<"fact="<<fact<<"\t"<<"xdes="<<xdes;
+         
+    
+      { 
+         // xact=encoder();
        e=xdes-xact;  
-      
+
   gettimeofday(&t2, NULL);
 
 
@@ -342,71 +373,72 @@ float p=0.005,ki=0.005,ierr=0,te,x2=0,speed=0,Ers,d=0.5,xdes=0,dx=7500;
     derr=de/dt2;
     te=kp*e+kd*(derr);
    //cout<<"te"<<te<<"\t\t";
-    cout << elapsedTime2 << " ms.\t";
+    
     t22=elapsedTime2; 
-    e2=e;
-    prev=elapsedTime2;
+   e2=e;
+    prev=elapsedTime2;  
     //cout<<"e ="<<e<<"\t" ;
     
     //outputFile<<xact<<"\t"<<elapsedTime<<"\n";
-   if(E<=4 && E>=-4)
-   {y=0;
-       te=0;
-   }
-   else
-   {y=0.1;}
 
 
 
-
-    if(te>50.0)
+ if(te>50.0)
    {duty=99.0;
    }
    else if(te>0.0 && te<50.0)
    {duty=(te+50.0);
-      //cout<<"hello"; 
+      cout<<"hello"; 
    }
    else if(te==50.0)
    {duty=(te+50.0);
        
    }
    else if(te<0.0 && te>-50.0 )
-    {  //cout<<"hey";
+    {  cout<<"hey";
         duty=(te+50.0);}
    else if(te==-50.0)
     { 
         duty=(te+50.0);}
- else if(te==0)
- 
-  {duty=50.0;}
- 
-    else
-    {//cout<<"i m here";
+   
+   else if (te==0.0)
+   {pwm_m1.stop();}
+    else if(te < -50.0)
+    {cout<<"i m here";
         duty=1.0;}
     
-   cout<<"\t"<<duty<<"\t";
+   
    
   
    pwm_m1.setFrequency(400);         // Set the period in ns
    pwm_m1.setDutyCycle(duty*1.0f);       // Set the duty cycle as a percentage
    pwm_m1.setPolarity(PWM::ACTIVE_LOW);  // using active low PWM
    pwm_m1.run();  
+      
+  
    
-     
+  
+   
+ }    
   
   
    
-   dx=xact-x2;
-    speed=dx/dt;
-   cout<<"speed="<<speed<<"\n";
+  
+   cout<<"speed="<<speed<<"\t"<<"te="<<te<<"\t"<<dt2<<"\t"<<"dt="<<dt<<"\t";
    
-    x2=xact;
-    t=elapsedTime; 
+    
+  x2=xact;
+   t=elapsedTime; 
     prevE=elapsedTime;
    // cout<<"E ="<<E<<"\t" ;
       t++;
 
-count++;      }
+count++;      
+      
+     
+      
+      
+  }
  outputFile.close();
  
  //outputFile.close();
